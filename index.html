@@ -628,13 +628,13 @@
     </div>
     <div class="mic-area">
       <div class="speaker-label" id="labelMe">나</div>
-      <button class="mic-btn" id="micBtn" onmousedown="startRec()" onmouseup="stopRec()" ontouchstart="startRec(event)" ontouchend="stopRec(event)">
+      <button class="mic-btn" id="micBtn" onclick="toggleRec()">
         <div class="mic-ring"></div>
         🎤
       </button>
       <div class="speaker-label" id="labelThem">상대방</div>
     </div>
-    <div class="mic-hint" id="micHint">꾹 눌러서 말하기</div>
+    <div class="mic-hint" id="micHint">버튼을 눌러 말하기 시작</div>
   </div>
 </div>
 
@@ -832,50 +832,45 @@ function setMode(mode) {
 }
 
 // ===== 녹음 =====
-async function startRec(e) {
-  if (e) e.preventDefault();
-  if (!apiKey) { showToast('⚙ API 키를 먼저 설정해주세요'); toggleApiPanel(); return; }
-  if (isRecording) return;
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    audioChunks = [];
-    mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-    mediaRecorder.start();
-    isRecording = true;
+async function toggleRec() {
+  if (isRecording) {
+    // 녹음 중 → 중지
+    isRecording = false;
+    mediaRecorder.stop();
+    mediaRecorder.stream.getTracks().forEach(t => t.stop());
 
     const btn = document.getElementById('micBtn');
-    btn.classList.add('recording');
-    btn.innerHTML = '<div class="mic-ring"></div>🔴';
-    document.getElementById('micHint').textContent = '말하는 중... (손 떼면 번역)';
-  } catch (err) {
-    showToast('마이크 접근 권한이 필요합니다');
+    btn.classList.remove('recording');
+    btn.classList.add('loading');
+    btn.innerHTML = '<div class="mic-ring"></div>⏳';
+    document.getElementById('micHint').textContent = '번역 중...';
+
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(audioChunks, { type: 'audio/webm' });
+      await processAudio(blob);
+      btn.classList.remove('loading');
+      btn.innerHTML = '<div class="mic-ring"></div>🎤';
+      document.getElementById('micHint').textContent = '버튼을 눌러 말하기 시작';
+    };
+  } else {
+    // 대기 중 → 녹음 시작
+    if (!apiKey) { showToast('⚙ API 키를 먼저 설정해주세요'); toggleApiPanel(); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+      mediaRecorder.start();
+      isRecording = true;
+
+      const btn = document.getElementById('micBtn');
+      btn.classList.add('recording');
+      btn.innerHTML = '<div class="mic-ring"></div>🔴';
+      document.getElementById('micHint').textContent = '녹음 중... 다시 누르면 번역';
+    } catch (err) {
+      showToast('마이크 접근 권한이 필요합니다');
+    }
   }
-}
-
-async function stopRec(e) {
-  if (e) e.preventDefault();
-  if (!isRecording || !mediaRecorder) return;
-
-  isRecording = false;
-  mediaRecorder.stop();
-  mediaRecorder.stream.getTracks().forEach(t => t.stop());
-
-  const btn = document.getElementById('micBtn');
-  btn.classList.remove('recording');
-  btn.classList.add('loading');
-  btn.innerHTML = '<div class="mic-ring"></div>⏳';
-  document.getElementById('micHint').textContent = '번역 중...';
-
-  mediaRecorder.onstop = async () => {
-    const blob = new Blob(audioChunks, { type: 'audio/webm' });
-    await processAudio(blob);
-
-    btn.classList.remove('loading');
-    btn.innerHTML = '<div class="mic-ring"></div>🎤';
-    document.getElementById('micHint').textContent = '꾹 눌러서 말하기';
-  };
 }
 
 async function processAudio(blob) {
