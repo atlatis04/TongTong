@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>옆통역</title>
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c27;
+    --accent: #5b8aff;
+    --accent2: #ff6b6b;
+    --accent3: #00e5b0;
+    --text: #f0f0f8;
+    --text2: #8888aa;
+    --border: #2a2a3d;
+    --me-bg: #1a2540;
+    --them-bg: #1f1f2e;
+    --recording: #ff4444;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Nanum Gothic', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    max-width: 480px;
+    margin: 0 auto;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* 배경 장식 */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -200px; left: -200px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(91,138,255,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* 상단 헤더 */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -1px;
+  }
+  .logo span { color: var(--accent3); }
+
+  .lang-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+
+  .lang-btn {
+    background: none;
+    border: none;
+    color: var(--text);
+    font-family: 'Nanum Gothic', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 8px;
+    transition: background 0.2s;
+  }
+  .lang-btn:hover { background: var(--border); }
+  .lang-btn.active { background: var(--accent); color: white; }
+
+  .swap-icon {
+    color: var(--text2);
+    font-size: 14px;
+    cursor: pointer;
+    transition: transform 0.3s;
+  }
+  .swap-icon:hover { transform: rotate(180deg); color: var(--accent3); }
+
+  .settings-btn {
+    background: none;
+    border: none;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px;
+    transition: color 0.2s;
+  }
+  .settings-btn:hover { color: var(--accent); }
+
+  /* API 키 패널 */
+  .api-panel {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: none;
+    animation: slideDown 0.2s ease;
+  }
+  .api-panel.show { display: block; }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .api-panel label {
+    font-size: 11px;
+    color: var(--text2);
+    font-family: 'Space Mono', monospace;
+    display: block;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .api-input-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .api-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .api-input:focus { border-color: var(--accent); }
+  .api-input::placeholder { color: var(--text2); }
+
+  .api-save-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    color: white;
+    font-family: 'Nanum Gothic', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .api-save-btn:hover { background: #4a79ee; }
+
+  .api-status {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--accent3);
+    display: none;
+  }
+
+  /* 탭 메뉴 */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: sticky;
+    top: 61px;
+    z-index: 99;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text2);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .tab:hover { color: var(--text); }
+
+  /* 대화 화면 */
+  .screen { display: none; flex-direction: column; flex: 1; }
+  .screen.active { display: flex; }
+
+  /* 채팅 영역 */
+  .chat-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 16px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 300px;
+    max-height: calc(100vh - 280px);
+  }
+
+  .chat-area::-webkit-scrollbar { width: 3px; }
+  .chat-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--text2);
+    padding: 40px 20px;
+  }
+
+  .empty-icon { font-size: 48px; opacity: 0.4; }
+  .empty-text { font-size: 14px; text-align: center; line-height: 1.6; }
+
+  /* 말풍선 */
+  .bubble {
+    max-width: 85%;
+    animation: bubbleIn 0.3s ease;
+  }
+
+  @keyframes bubbleIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .bubble.me { align-self: flex-end; }
+  .bubble.them { align-self: flex-start; }
+
+  .bubble-label {
+    font-size: 10px;
+    color: var(--text2);
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 4px;
+    padding: 0 4px;
+  }
+  .bubble.me .bubble-label { text-align: right; }
+
+  .bubble-content {
+    border-radius: 16px;
+    padding: 12px 14px;
+    position: relative;
+  }
+
+  .bubble.me .bubble-content {
+    background: var(--me-bg);
+    border: 1px solid rgba(91,138,255,0.3);
+    border-bottom-right-radius: 4px;
+  }
+
+  .bubble.them .bubble-content {
+    background: var(--them-bg);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+  }
+
+  .bubble-original {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .bubble-translated {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--accent3);
+    border-top: 1px solid rgba(255,255,255,0.07);
+    padding-top: 6px;
+    font-style: italic;
+  }
+
+  .bubble-time {
+    font-size: 10px;
+    color: var(--text2);
+    font-family: 'Space Mono', monospace;
+    margin-top: 3px;
+    padding: 0 4px;
+  }
+  .bubble.me .bubble-time { text-align: right; }
+
+  /* 하단 컨트롤 */
+  .controls {
+    padding: 16px 20px 24px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  .mode-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .mode-btn {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text2);
+    font-family: 'Nanum Gothic', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .mode-btn.active {
+    background: var(--surface2);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .mic-area {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .speaker-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text2);
+    width: 60px;
+    text-align: center;
+    transition: color 0.3s;
+  }
+  .speaker-label.active { color: var(--accent); }
+
+  .mic-btn {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: none;
+    background: var(--surface2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    transition: all 0.2s;
+    position: relative;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    border: 2px solid var(--border);
+  }
+
+  .mic-btn:hover {
+    background: var(--surface);
+    border-color: var(--accent);
+    transform: scale(1.05);
+  }
+
+  .mic-btn.recording {
+    background: rgba(255,68,68,0.15);
+    border-color: var(--recording);
+    animation: pulse 1s infinite;
+  }
+
+  .mic-btn.loading {
+    background: rgba(91,138,255,0.15);
+    border-color: var(--accent);
+    cursor: not-allowed;
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 4px 20px rgba(255,68,68,0.3); }
+    50% { box-shadow: 0 4px 40px rgba(255,68,68,0.6), 0 0 0 12px rgba(255,68,68,0.1); }
+  }
+
+  .mic-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid var(--recording);
+    opacity: 0;
+    width: 100%; height: 100%;
+  }
+
+  .mic-btn.recording .mic-ring {
+    animation: ring 1.5s infinite;
+  }
+
+  @keyframes ring {
+    0% { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(1.8); opacity: 0; }
+  }
+
+  .mic-hint {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text2);
+    margin-top: 10px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* 시나리오 화면 */
+  .scenario-grid {
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    overflow-y: auto;
+  }
+
+  .scenario-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .scenario-card:hover {
+    border-color: var(--accent);
+    background: var(--surface2);
+    transform: translateY(-2px);
+  }
+  .scenario-card.active {
+    border-color: var(--accent);
+    background: var(--me-bg);
+  }
+
+  .scenario-icon { font-size: 28px; margin-bottom: 6px; }
+  .scenario-name { font-size: 13px; font-weight: 700; color: var(--text); }
+  .scenario-desc { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+  .phrase-list {
+    padding: 0 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .phrase-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .phrase-item:hover {
+    border-color: var(--accent3);
+    background: var(--surface2);
+  }
+
+  .phrase-ko { font-size: 14px; font-weight: 700; color: var(--text); }
+  .phrase-en { font-size: 12px; color: var(--accent3); margin-top: 2px; }
+  .phrase-play { font-size: 18px; opacity: 0.5; transition: opacity 0.2s; }
+  .phrase-item:hover .phrase-play { opacity: 1; }
+
+  /* 히스토리 화면 */
+  .history-list {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .history-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .history-item:hover { border-color: var(--border); background: var(--surface2); }
+
+  .history-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .history-date { font-size: 11px; color: var(--text2); font-family: 'Space Mono', monospace; }
+  .history-count { font-size: 11px; color: var(--accent); font-family: 'Space Mono', monospace; }
+
+  .history-preview { font-size: 13px; color: var(--text2); line-height: 1.4; }
+  .history-preview strong { color: var(--text); }
+
+  .clear-btn {
+    margin: 8px 16px 16px;
+    padding: 10px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--accent2);
+    font-family: 'Nanum Gothic', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .clear-btn:hover { background: rgba(255,107,107,0.1); border-color: var(--accent2); }
+
+  /* 로딩 표시 */
+  .typing-bubble {
+    align-self: flex-start;
+    background: var(--them-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    border-bottom-left-radius: 4px;
+    padding: 14px 18px;
+    display: flex;
+    gap: 5px;
+    animation: bubbleIn 0.3s ease;
+  }
+
+  .typing-dot {
+    width: 7px; height: 7px;
+    background: var(--text2);
+    border-radius: 50%;
+    animation: typing 1.2s infinite;
+  }
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes typing {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-6px); opacity: 1; }
+  }
+
+  /* 토스트 */
+  .toast {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 10px 20px;
+    font-size: 13px;
+    color: var(--text);
+    z-index: 1000;
+    opacity: 0;
+    transition: all 0.3s;
+    white-space: nowrap;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* 스크롤바 */
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<div class="header">
+  <div class="logo">옆<span>통</span>역</div>
+  <div class="lang-selector">
+    <button class="lang-btn active" id="srcLang" onclick="cycleLang('src')">한국어</button>
+    <span class="swap-icon" onclick="swapLangs()">⇄</span>
+    <button class="lang-btn" id="tgtLang" onclick="cycleLang('tgt')">English</button>
+  </div>
+  <button class="settings-btn" onclick="toggleApiPanel()">⚙</button>
+</div>
+
+<!-- API 키 패널 -->
+<div class="api-panel" id="apiPanel">
+  <label>OpenAI API Key</label>
+  <div class="api-input-row">
+    <input type="password" class="api-input" id="apiKeyInput" placeholder="sk-..." />
+    <button class="api-save-btn" onclick="saveApiKey()">저장</button>
+  </div>
+  <div class="api-status" id="apiStatus">✓ API 키 저장됨</div>
+</div>
+
+<!-- 탭 -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('translate')">🎙 번역</div>
+  <div class="tab" onclick="switchTab('scenario')">📋 시나리오</div>
+  <div class="tab" onclick="switchTab('history')">📂 히스토리</div>
+</div>
+
+<!-- 번역 화면 -->
+<div class="screen active" id="screen-translate">
+  <div class="chat-area" id="chatArea">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">🌏</div>
+      <div class="empty-text">버튼을 누르고 말하면<br>실시간으로 번역됩니다</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="mode-me" onclick="setMode('me')">내가 말하기</button>
+      <button class="mode-btn" id="mode-them" onclick="setMode('them')">상대방 말하기</button>
+    </div>
+    <div class="mic-area">
+      <div class="speaker-label" id="labelMe">나</div>
+      <button class="mic-btn" id="micBtn" onmousedown="startRec()" onmouseup="stopRec()" ontouchstart="startRec(event)" ontouchend="stopRec(event)">
+        <div class="mic-ring"></div>
+        🎤
+      </button>
+      <div class="speaker-label" id="labelThem">상대방</div>
+    </div>
+    <div class="mic-hint" id="micHint">꾹 눌러서 말하기</div>
+  </div>
+</div>
+
+<!-- 시나리오 화면 -->
+<div class="screen" id="screen-scenario">
+  <div class="scenario-grid" id="scenarioGrid">
+    <div class="scenario-card active" data-id="restaurant" onclick="selectScenario('restaurant')">
+      <div class="scenario-icon">🍽</div>
+      <div class="scenario-name">식당</div>
+      <div class="scenario-desc">주문, 알레르기</div>
+    </div>
+    <div class="scenario-card" data-id="shopping" onclick="selectScenario('shopping')">
+      <div class="scenario-icon">🛍</div>
+      <div class="scenario-name">쇼핑</div>
+      <div class="scenario-desc">가격, 교환, 환불</div>
+    </div>
+    <div class="scenario-card" data-id="hotel" onclick="selectScenario('hotel')">
+      <div class="scenario-icon">🏨</div>
+      <div class="scenario-name">숙소</div>
+      <div class="scenario-desc">체크인, 서비스</div>
+    </div>
+    <div class="scenario-card" data-id="transport" onclick="selectScenario('transport')">
+      <div class="scenario-icon">🚌</div>
+      <div class="scenario-name">교통</div>
+      <div class="scenario-desc">길찾기, 티켓</div>
+    </div>
+    <div class="scenario-card" data-id="hospital" onclick="selectScenario('hospital')">
+      <div class="scenario-icon">🏥</div>
+      <div class="scenario-name">병원</div>
+      <div class="scenario-desc">증상, 약국</div>
+    </div>
+    <div class="scenario-card" data-id="emergency" onclick="selectScenario('emergency')">
+      <div class="scenario-icon">🆘</div>
+      <div class="scenario-name">긴급</div>
+      <div class="scenario-desc">도움 요청</div>
+    </div>
+  </div>
+  <div class="phrase-list" id="phraseList"></div>
+</div>
+
+<!-- 히스토리 화면 -->
+<div class="screen" id="screen-history">
+  <div class="history-list" id="historyList"></div>
+  <button class="clear-btn" onclick="clearHistory()">🗑 대화 기록 모두 삭제</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== 상태 =====
+let apiKey = localStorage.getItem('yeoptongyeok_apikey') || '';
+let currentMode = 'me';
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
+let conversations = JSON.parse(localStorage.getItem('yeoptongyeok_convs') || '[]');
+let currentConvId = Date.now();
+let currentConvMessages = [];
+
+const LANGS = {
+  '한국어': 'ko', 'English': 'en', '日本語': 'ja', '中文': 'zh',
+  'Español': 'es', 'Français': 'fr', 'Deutsch': 'de', 'ภาษาไทย': 'th',
+  'Tiếng Việt': 'vi', 'Bahasa': 'id'
+};
+const LANG_NAMES = Object.keys(LANGS);
+let srcLangName = '한국어';
+let tgtLangName = 'English';
+
+// ===== 시나리오 데이터 =====
+const PHRASES = {
+  restaurant: [
+    { ko: '이 테이블 예약했어요', en: 'I have a reservation for this table.' },
+    { ko: '메뉴판 주세요', en: 'Can I have the menu please?' },
+    { ko: '이걸로 주세요', en: 'I\'ll have this one please.' },
+    { ko: '견과류 알레르기가 있어요', en: 'I\'m allergic to nuts.' },
+    { ko: '맵지 않게 해주세요', en: 'Please make it not spicy.' },
+    { ko: '계산서 주세요', en: 'Can I have the bill please?' },
+    { ko: '카드 되나요?', en: 'Do you accept credit cards?' },
+    { ko: '포장해 주세요', en: 'Can I get this to go?' },
+  ],
+  shopping: [
+    { ko: '이거 얼마예요?', en: 'How much is this?' },
+    { ko: '다른 색상 있나요?', en: 'Do you have this in another color?' },
+    { ko: '입어봐도 될까요?', en: 'Can I try this on?' },
+    { ko: '좀 깎아 줄 수 있나요?', en: 'Can you give me a discount?' },
+    { ko: '영수증 주세요', en: 'Can I have the receipt?' },
+    { ko: '교환 가능한가요?', en: 'Can I exchange this?' },
+    { ko: '환불해주세요', en: 'I\'d like a refund please.' },
+    { ko: '면세 되나요?', en: 'Is tax-free shopping available?' },
+  ],
+  hotel: [
+    { ko: '체크인 하러 왔어요', en: 'I\'m here to check in.' },
+    { ko: '제 이름으로 예약했어요', en: 'I have a reservation under my name.' },
+    { ko: '방 업그레이드 가능한가요?', en: 'Is a room upgrade available?' },
+    { ko: '와이파이 비밀번호가 뭐예요?', en: 'What is the WiFi password?' },
+    { ko: '수건 더 주세요', en: 'Can I have more towels?' },
+    { ko: '체크아웃은 몇 시예요?', en: 'What time is check-out?' },
+    { ko: '짐 맡아줄 수 있나요?', en: 'Can you keep my luggage?' },
+    { ko: '공항까지 택시 불러주세요', en: 'Please call a taxi to the airport.' },
+  ],
+  transport: [
+    { ko: '공항까지 어떻게 가요?', en: 'How do I get to the airport?' },
+    { ko: '여기로 가주세요', en: 'Please take me here.' },
+    { ko: '티켓 한 장 주세요', en: 'One ticket please.' },
+    { ko: '다음 역이 어디예요?', en: 'What is the next station?' },
+    { ko: '내려야 할 곳에 알려주세요', en: 'Please let me know when to get off.' },
+    { ko: '지하철역이 어디예요?', en: 'Where is the subway station?' },
+    { ko: '여기서 얼마나 걸려요?', en: 'How long does it take from here?' },
+    { ko: '길을 잃었어요', en: 'I\'m lost.' },
+  ],
+  hospital: [
+    { ko: '머리가 너무 아파요', en: 'I have a severe headache.' },
+    { ko: '열이 있어요', en: 'I have a fever.' },
+    { ko: '배가 아파요', en: 'I have a stomachache.' },
+    { ko: '이 약 처방해 주세요', en: 'Please prescribe this medicine.' },
+    { ko: '약국이 어디예요?', en: 'Where is the pharmacy?' },
+    { ko: '보험이 있어요', en: 'I have insurance.' },
+    { ko: '응급실이 어디예요?', en: 'Where is the emergency room?' },
+    { ko: '한국어 하는 의사 있나요?', en: 'Is there a Korean-speaking doctor?' },
+  ],
+  emergency: [
+    { ko: '도와주세요!', en: 'Help me!' },
+    { ko: '경찰 불러주세요', en: 'Please call the police.' },
+    { ko: '앰뷸런스 불러주세요', en: 'Please call an ambulance.' },
+    { ko: '지갑을 잃어버렸어요', en: 'I lost my wallet.' },
+    { ko: '여권을 잃어버렸어요', en: 'I lost my passport.' },
+    { ko: '도둑맞았어요', en: 'I was robbed.' },
+    { ko: '한국 대사관이 어디예요?', en: 'Where is the Korean embassy?' },
+    { ko: '이건 긴급 상황이에요', en: 'This is an emergency.' },
+  ],
+};
+
+let selectedScenario = 'restaurant';
+
+// ===== 초기화 =====
+if (apiKey) {
+  document.getElementById('apiKeyInput').value = apiKey;
+  document.getElementById('apiStatus').style.display = 'block';
+}
+renderPhrases(selectedScenario);
+renderHistory();
+
+// ===== API 키 =====
+function toggleApiPanel() {
+  const panel = document.getElementById('apiPanel');
+  panel.classList.toggle('show');
+}
+
+function saveApiKey() {
+  apiKey = document.getElementById('apiKeyInput').value.trim();
+  if (!apiKey) { showToast('API 키를 입력해주세요'); return; }
+  localStorage.setItem('yeoptongyeok_apikey', apiKey);
+  document.getElementById('apiStatus').style.display = 'block';
+  showToast('✓ API 키 저장됨');
+  setTimeout(() => document.getElementById('apiPanel').classList.remove('show'), 800);
+}
+
+// ===== 탭 =====
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const tabs = ['translate', 'scenario', 'history'];
+    t.classList.toggle('active', tabs[i] === name);
+  });
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  if (name === 'history') renderHistory();
+}
+
+// ===== 언어 =====
+function cycleLang(type) {
+  if (type === 'src') {
+    let idx = (LANG_NAMES.indexOf(srcLangName) + 1) % LANG_NAMES.length;
+    srcLangName = LANG_NAMES[idx];
+    document.getElementById('srcLang').textContent = srcLangName;
+  } else {
+    let idx = (LANG_NAMES.indexOf(tgtLangName) + 1) % LANG_NAMES.length;
+    tgtLangName = LANG_NAMES[idx];
+    document.getElementById('tgtLang').textContent = tgtLangName;
+  }
+}
+
+function swapLangs() {
+  [srcLangName, tgtLangName] = [tgtLangName, srcLangName];
+  document.getElementById('srcLang').textContent = srcLangName;
+  document.getElementById('tgtLang').textContent = tgtLangName;
+}
+
+// ===== 모드 =====
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('mode-me').classList.toggle('active', mode === 'me');
+  document.getElementById('mode-them').classList.toggle('active', mode === 'them');
+  document.getElementById('labelMe').classList.toggle('active', mode === 'me');
+  document.getElementById('labelThem').classList.toggle('active', mode === 'them');
+}
+
+// ===== 녹음 =====
+async function startRec(e) {
+  if (e) e.preventDefault();
+  if (!apiKey) { showToast('⚙ API 키를 먼저 설정해주세요'); toggleApiPanel(); return; }
+  if (isRecording) return;
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.start();
+    isRecording = true;
+
+    const btn = document.getElementById('micBtn');
+    btn.classList.add('recording');
+    btn.innerHTML = '<div class="mic-ring"></div>🔴';
+    document.getElementById('micHint').textContent = '말하는 중... (손 떼면 번역)';
+  } catch (err) {
+    showToast('마이크 접근 권한이 필요합니다');
+  }
+}
+
+async function stopRec(e) {
+  if (e) e.preventDefault();
+  if (!isRecording || !mediaRecorder) return;
+
+  isRecording = false;
+  mediaRecorder.stop();
+  mediaRecorder.stream.getTracks().forEach(t => t.stop());
+
+  const btn = document.getElementById('micBtn');
+  btn.classList.remove('recording');
+  btn.classList.add('loading');
+  btn.innerHTML = '<div class="mic-ring"></div>⏳';
+  document.getElementById('micHint').textContent = '번역 중...';
+
+  mediaRecorder.onstop = async () => {
+    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+    await processAudio(blob);
+
+    btn.classList.remove('loading');
+    btn.innerHTML = '<div class="mic-ring"></div>🎤';
+    document.getElementById('micHint').textContent = '꾹 눌러서 말하기';
+  };
+}
+
+async function processAudio(blob) {
+  const isSpeakerMe = (currentMode === 'me');
+  const speakLang = isSpeakerMe ? srcLangName : tgtLangName;
+  const transLang = isSpeakerMe ? tgtLangName : srcLangName;
+
+  // 로딩 버블
+  const loadingEl = showLoadingBubble();
+
+  try {
+    // 1. Whisper STT
+    const formData = new FormData();
+    formData.append('file', blob, 'audio.webm');
+    formData.append('model', 'whisper-1');
+    formData.append('language', LANGS[speakLang] || 'ko');
+
+    const sttRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+      body: formData
+    });
+
+    if (!sttRes.ok) throw new Error('STT 오류: ' + sttRes.status);
+    const sttData = await sttRes.json();
+    const original = sttData.text?.trim();
+    if (!original) { removeLoadingBubble(loadingEl); showToast('음성을 인식하지 못했어요'); return; }
+
+    // 2. 번역
+    const transRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          { role: 'system', content: `You are a travel interpreter. Translate the user's text from ${speakLang} to ${transLang}. Output ONLY the translation, nothing else.` },
+          { role: 'user', content: original }
+        ],
+        max_tokens: 300
+      })
+    });
+
+    if (!transRes.ok) throw new Error('번역 오류: ' + transRes.status);
+    const transData = await transRes.json();
+    const translated = transData.choices[0].message.content.trim();
+
+    // 3. TTS (번역된 언어)
+    removeLoadingBubble(loadingEl);
+    addBubble(isSpeakerMe ? 'me' : 'them', original, translated, speakLang, transLang);
+    saveMessage(isSpeakerMe ? 'me' : 'them', original, translated);
+
+    // TTS 재생
+    playTTS(translated, LANGS[transLang] || 'en');
+
+  } catch (err) {
+    removeLoadingBubble(loadingEl);
+    showToast('오류: ' + err.message);
+    console.error(err);
+  }
+}
+
+async function playTTS(text, lang) {
+  try {
+    const res = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'tts-1',
+        input: text,
+        voice: 'nova',
+        speed: 0.95
+      })
+    });
+    if (!res.ok) return;
+    const audioBlob = await res.blob();
+    const url = URL.createObjectURL(audioBlob);
+    const audio = new Audio(url);
+    audio.play();
+  } catch (e) {
+    // TTS 실패해도 조용히 무시
+  }
+}
+
+// ===== 채팅 UI =====
+function showLoadingBubble() {
+  hideEmpty();
+  const el = document.createElement('div');
+  el.className = 'typing-bubble';
+  el.id = 'loadingBubble';
+  el.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+  document.getElementById('chatArea').appendChild(el);
+  el.scrollIntoView({ behavior: 'smooth' });
+  return el;
+}
+
+function removeLoadingBubble(el) {
+  if (el && el.parentNode) el.parentNode.removeChild(el);
+}
+
+function hideEmpty() {
+  const e = document.getElementById('emptyState');
+  if (e) e.style.display = 'none';
+}
+
+function addBubble(side, original, translated, srcL, tgtL) {
+  hideEmpty();
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+
+  const el = document.createElement('div');
+  el.className = `bubble ${side}`;
+  el.innerHTML = `
+    <div class="bubble-label">${side === 'me' ? '나' : '상대방'} · ${srcL}</div>
+    <div class="bubble-content">
+      <div class="bubble-original">${escHtml(original)}</div>
+      <div class="bubble-translated">${escHtml(translated)}</div>
+    </div>
+    <div class="bubble-time">${timeStr}</div>
+  `;
+  document.getElementById('chatArea').appendChild(el);
+  el.scrollIntoView({ behavior: 'smooth' });
+}
+
+function escHtml(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ===== 메시지 저장 =====
+function saveMessage(side, original, translated) {
+  currentConvMessages.push({ side, original, translated, time: Date.now() });
+
+  // conversations에 저장
+  const idx = conversations.findIndex(c => c.id === currentConvId);
+  if (idx >= 0) {
+    conversations[idx].messages = currentConvMessages;
+    conversations[idx].updatedAt = Date.now();
+  } else {
+    conversations.unshift({ id: currentConvId, messages: currentConvMessages, createdAt: Date.now(), updatedAt: Date.now() });
+  }
+  localStorage.setItem('yeoptongyeok_convs', JSON.stringify(conversations.slice(0, 50)));
+}
+
+// ===== 시나리오 =====
+function selectScenario(id) {
+  selectedScenario = id;
+  document.querySelectorAll('.scenario-card').forEach(c => {
+    c.classList.toggle('active', c.dataset.id === id);
+  });
+  renderPhrases(id);
+}
+
+function renderPhrases(id) {
+  const phrases = PHRASES[id] || [];
+  const tgt = tgtLangName;
+  const list = document.getElementById('phraseList');
+  const enPhrases = phrases; // 영어 기준
+
+  list.innerHTML = phrases.map(p => `
+    <div class="phrase-item" onclick="speakPhrase('${escAttr(p.en)}')">
+      <div>
+        <div class="phrase-ko">${escHtml(p.ko)}</div>
+        <div class="phrase-en">${escHtml(p.en)}</div>
+      </div>
+      <div class="phrase-play">▶</div>
+    </div>
+  `).join('');
+}
+
+function escAttr(t) {
+  return t.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+async function speakPhrase(en) {
+  if (!apiKey) { showToast('API 키를 먼저 설정해주세요'); return; }
+  showToast('🔊 재생 중...');
+  await playTTS(en, 'en');
+}
+
+// ===== 히스토리 =====
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  if (conversations.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">아직 대화 기록이 없어요</div></div>';
+    return;
+  }
+  list.innerHTML = conversations.map(c => {
+    const first = c.messages[0];
+    const d = new Date(c.createdAt);
+    const dateStr = d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return `
+      <div class="history-item" onclick="loadConversation(${c.id})">
+        <div class="history-meta">
+          <span class="history-date">${dateStr}</span>
+          <span class="history-count">${c.messages.length}개 번역</span>
+        </div>
+        <div class="history-preview"><strong>${escHtml(first?.original || '')}</strong><br>${escHtml(first?.translated || '')}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function loadConversation(id) {
+  const conv = conversations.find(c => c.id === id);
+  if (!conv) return;
+  currentConvId = id;
+  currentConvMessages = conv.messages;
+
+  const chatArea = document.getElementById('chatArea');
+  chatArea.innerHTML = '';
+  conv.messages.forEach(m => addBubble(m.side, m.original, m.translated, '?', '?'));
+  switchTab('translate');
+}
+
+function clearHistory() {
+  if (!confirm('모든 대화 기록을 삭제할까요?')) return;
+  conversations = [];
+  currentConvMessages = [];
+  currentConvId = Date.now();
+  localStorage.setItem('yeoptongyeok_convs', '[]');
+  renderHistory();
+  document.getElementById('chatArea').innerHTML = `
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">🌏</div>
+      <div class="empty-text">버튼을 누르고 말하면<br>실시간으로 번역됩니다</div>
+    </div>`;
+  showToast('삭제 완료');
+}
+
+// ===== 토스트 =====
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
