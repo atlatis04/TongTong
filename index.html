@@ -1,1223 +1,962 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>옆통역</title>
-<link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #0a0a0f;
-    --surface: #13131a;
-    --surface2: #1c1c27;
-    --accent: #5b8aff;
-    --accent2: #ff6b6b;
-    --accent3: #00e5b0;
-    --text: #f0f0f8;
-    --text2: #8888aa;
-    --border: #2a2a3d;
-    --me-bg: #1a2540;
-    --them-bg: #1f1f2e;
-    --recording: #ff4444;
-  }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎙️ AI 실시간 음성 번역기</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Nanum Gothic', sans-serif;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    max-width: 480px;
-    margin: 0 auto;
-    position: relative;
-    overflow-x: hidden;
-  }
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
 
-  /* 배경 장식 */
-  body::before {
-    content: '';
-    position: fixed;
-    top: -200px; left: -200px;
-    width: 500px; height: 500px;
-    background: radial-gradient(circle, rgba(91,138,255,0.08) 0%, transparent 70%);
-    pointer-events: none;
-  }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
 
-  /* 상단 헤더 */
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 20px 12px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
 
-  .logo {
-    font-family: 'Space Mono', monospace;
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--accent);
-    letter-spacing: -1px;
-  }
-  .logo span { color: var(--accent3); }
+        /* 토스트 메시지 스타일 */
+        .toast {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 16px 28px;
+            border-radius: 50px;
+            font-size: 15px;
+            font-weight: 500;
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            white-space: nowrap;
+        }
 
-  .lang-selector {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 6px 12px;
-    cursor: pointer;
-  }
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
 
-  .lang-btn {
-    background: none;
-    border: none;
-    color: var(--text);
-    font-family: 'Nanum Gothic', sans-serif;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 8px;
-    transition: background 0.2s;
-  }
-  .lang-btn:hover { background: var(--border); }
-  .lang-btn.active { background: var(--accent); color: white; }
+        .toast.success {
+            background: rgba(76, 175, 80, 0.95);
+        }
 
-  .swap-icon {
-    color: var(--text2);
-    font-size: 14px;
-    cursor: pointer;
-    transition: transform 0.3s;
-  }
-  .swap-icon:hover { transform: rotate(180deg); color: var(--accent3); }
+        .toast.error {
+            background: rgba(244, 67, 54, 0.95);
+        }
 
-  .settings-btn {
-    background: none;
-    border: none;
-    color: var(--text2);
-    cursor: pointer;
-    font-size: 18px;
-    padding: 4px;
-    transition: color 0.2s;
-  }
-  .settings-btn:hover { color: var(--accent); }
+        .toast.recording {
+            background: rgba(245, 87, 108, 0.95);
+        }
 
-  /* API 키 패널 */
-  .api-panel {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 14px 20px;
-    display: none;
-    animation: slideDown 0.2s ease;
-  }
-  .api-panel.show { display: block; }
+        .toast-icon {
+            font-size: 20px;
+        }
 
-  @keyframes slideDown {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
+        .api-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+        }
 
-  .api-panel label {
-    font-size: 11px;
-    color: var(--text2);
-    font-family: 'Space Mono', monospace;
-    display: block;
-    margin-bottom: 6px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
+        .api-section label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
 
-  .api-input-row {
-    display: flex;
-    gap: 8px;
-  }
+        .api-section input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
 
-  .api-input {
-    flex: 1;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 8px 12px;
-    color: var(--text);
-    font-family: 'Space Mono', monospace;
-    font-size: 12px;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  .api-input:focus { border-color: var(--accent); }
-  .api-input::placeholder { color: var(--text2); }
+        .api-section input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
 
-  .api-save-btn {
-    background: var(--accent);
-    border: none;
-    border-radius: 8px;
-    padding: 8px 14px;
-    color: white;
-    font-family: 'Nanum Gothic', sans-serif;
-    font-weight: 700;
-    font-size: 13px;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-  .api-save-btn:hover { background: #4a79ee; }
+        .language-selector {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 30px;
+        }
 
-  .api-status {
-    margin-top: 6px;
-    font-size: 11px;
-    color: var(--accent3);
-    display: none;
-  }
+        .lang-box {
+            text-align: center;
+        }
 
-  /* 탭 메뉴 */
-  .tabs {
-    display: flex;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg);
-    position: sticky;
-    top: 61px;
-    z-index: 99;
-  }
+        .lang-box label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
 
-  .tab {
-    flex: 1;
-    padding: 12px;
-    text-align: center;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text2);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s;
-  }
-  .tab.active {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
-  }
-  .tab:hover { color: var(--text); }
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
 
-  /* 대화 화면 */
-  .screen { display: none; flex-direction: column; flex: 1; }
-  .screen.active { display: flex; }
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
 
-  /* 채팅 영역 */
-  .chat-area {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px 16px 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    min-height: 300px;
-    max-height: calc(100vh - 280px);
-  }
+        .swap-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s, background 0.3s;
+            font-size: 18px;
+            margin-top: 20px;
+        }
 
-  .chat-area::-webkit-scrollbar { width: 3px; }
-  .chat-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .swap-btn:hover {
+            background: #5568d3;
+            transform: rotate(180deg);
+        }
 
-  .empty-state {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    color: var(--text2);
-    padding: 40px 20px;
-  }
+        .mic-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            margin: 30px 0;
+        }
 
-  .empty-icon { font-size: 48px; opacity: 0.4; }
-  .empty-text { font-size: 14px; text-align: center; line-height: 1.6; }
+        .mic-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-  /* 말풍선 */
-  .bubble {
-    max-width: 85%;
-    animation: bubbleIn 0.3s ease;
-  }
+        /* 녹음 중 파형 애니메이션 */
+        .sound-waves {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
 
-  @keyframes bubbleIn {
-    from { opacity: 0; transform: translateY(10px) scale(0.97); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-  }
+        .sound-waves.active {
+            display: flex;
+        }
 
-  .bubble.me { align-self: flex-end; }
-  .bubble.them { align-self: flex-start; }
+        .wave {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 3px solid rgba(245, 87, 108, 0.5);
+            animation: wave-expand 2s infinite;
+            opacity: 0;
+        }
 
-  .bubble-label {
-    font-size: 10px;
-    color: var(--text2);
-    font-family: 'Space Mono', monospace;
-    margin-bottom: 4px;
-    padding: 0 4px;
-  }
-  .bubble.me .bubble-label { text-align: right; }
+        .wave:nth-child(1) { animation-delay: 0s; }
+        .wave:nth-child(2) { animation-delay: 0.5s; }
+        .wave:nth-child(3) { animation-delay: 1s; }
 
-  .bubble-content {
-    border-radius: 16px;
-    padding: 12px 14px;
-    position: relative;
-  }
+        @keyframes wave-expand {
+            0% {
+                transform: scale(0.5);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1.5);
+                opacity: 0;
+            }
+        }
 
-  .bubble.me .bubble-content {
-    background: var(--me-bg);
-    border: 1px solid rgba(91,138,255,0.3);
-    border-bottom-right-radius: 4px;
-  }
+        .mic-button {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 40px;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-  .bubble.them .bubble-content {
-    background: var(--them-bg);
-    border: 1px solid var(--border);
-    border-bottom-left-radius: 4px;
-  }
+        .mic-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 12px 35px rgba(102, 126, 234, 0.5);
+        }
 
-  .bubble-original {
-    font-size: 15px;
-    line-height: 1.5;
-    color: var(--text);
-    margin-bottom: 6px;
-  }
+        .mic-button:active {
+            transform: scale(0.95);
+        }
 
-  .bubble-translated {
-    font-size: 13px;
-    line-height: 1.5;
-    color: var(--accent3);
-    border-top: 1px solid rgba(255,255,255,0.07);
-    padding-top: 6px;
-    font-style: italic;
-  }
+        .mic-button.recording {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            box-shadow: 0 8px 25px rgba(245, 87, 108, 0.5);
+            animation: mic-pulse 1.5s infinite;
+        }
 
-  .bubble-time {
-    font-size: 10px;
-    color: var(--text2);
-    font-family: 'Space Mono', monospace;
-    margin-top: 3px;
-    padding: 0 4px;
-  }
-  .bubble.me .bubble-time { text-align: right; }
+        @keyframes mic-pulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(245, 87, 108, 0.7);
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 0 0 15px rgba(245, 87, 108, 0);
+                transform: scale(1.05);
+            }
+        }
 
-  /* 하단 컨트롤 */
-  .controls {
-    padding: 16px 20px 24px;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
-  }
+        .mic-button.processing {
+            background: linear-gradient(135deg, #ffd93d 0%, #ff6b6b 100%);
+            cursor: wait;
+        }
 
-  .mode-toggle {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 14px;
-  }
+        .timer {
+            font-size: 24px;
+            font-weight: 700;
+            color: #f5576c;
+            font-variant-numeric: tabular-nums;
+            opacity: 0;
+            transition: opacity 0.3s;
+            margin-top: 10px;
+        }
 
-  .mode-btn {
-    flex: 1;
-    padding: 8px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--surface);
-    color: var(--text2);
-    font-family: 'Nanum Gothic', sans-serif;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
-  }
-  .mode-btn.active {
-    background: var(--surface2);
-    border-color: var(--accent);
-    color: var(--accent);
-  }
+        .timer.show {
+            opacity: 1;
+        }
 
-  .mic-area {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 20px;
-  }
+        .status-box {
+            background: #f8f9fa;
+            padding: 12px 24px;
+            border-radius: 20px;
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
-  .speaker-label {
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--text2);
-    width: 60px;
-    text-align: center;
-    transition: color 0.3s;
-  }
-  .speaker-label.active { color: var(--accent); }
+        .status-box.recording {
+            background: #ffe5e7;
+            color: #f5576c;
+        }
 
-  .mic-btn {
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    border: none;
-    background: var(--surface2);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 38px;
-    transition: all 0.2s;
-    position: relative;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-    border: 2px solid var(--border);
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    user-select: none;
-  }
+        .status-box.processing {
+            background: #fff3cd;
+            color: #856404;
+        }
 
-  .mic-btn:hover {
-    background: var(--surface);
-    border-color: var(--accent);
-    transform: scale(1.05);
-  }
+        .status-icon {
+            font-size: 16px;
+        }
 
-  .mic-btn.recording {
-    background: rgba(255,68,68,0.15);
-    border-color: var(--recording);
-    animation: pulse 1s infinite;
-  }
+        .result-container {
+            margin-top: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 20px;
+            min-height: 150px;
+            display: none;
+        }
 
-  .mic-btn.loading {
-    background: rgba(91,138,255,0.15);
-    border-color: var(--accent);
-    cursor: not-allowed;
-  }
+        .result-container.show {
+            display: block;
+            animation: slideUp 0.5s ease;
+        }
 
-  @keyframes pulse {
-    0%, 100% { box-shadow: 0 4px 20px rgba(255,68,68,0.3); }
-    50% { box-shadow: 0 4px 40px rgba(255,68,68,0.6), 0 0 0 12px rgba(255,68,68,0.1); }
-  }
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
 
-  .mic-ring {
-    position: absolute;
-    border-radius: 50%;
-    border: 2px solid var(--recording);
-    opacity: 0;
-    width: 100%; height: 100%;
-  }
+        .result-label {
+            font-size: 12px;
+            color: #667eea;
+            font-weight: 700;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
 
-  .mic-btn.recording .mic-ring {
-    animation: ring 1.5s infinite;
-  }
+        .result-text {
+            font-size: 17px;
+            color: #333;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+            word-break: keep-all;
+        }
 
-  @keyframes ring {
-    0% { transform: scale(1); opacity: 0.6; }
-    100% { transform: scale(1.8); opacity: 0; }
-  }
+        .translated-text {
+            border-left-color: #764ba2;
+        }
 
-  .mic-hint {
-    text-align: center;
-    font-size: 11px;
-    color: var(--text2);
-    margin-top: 10px;
-    font-family: 'Space Mono', monospace;
-  }
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            vertical-align: middle;
+        }
 
-  /* 시나리오 화면 */
-  .scenario-grid {
-    padding: 16px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    overflow-y: auto;
-  }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
 
-  .scenario-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 16px 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
-  }
-  .scenario-card:hover {
-    border-color: var(--accent);
-    background: var(--surface2);
-    transform: translateY(-2px);
-  }
-  .scenario-card.active {
-    border-color: var(--accent);
-    background: var(--me-bg);
-  }
+        .error {
+            color: #f5576c;
+            font-size: 14px;
+            margin-top: 10px;
+            text-align: center;
+            background: #ffe5e7;
+            padding: 10px;
+            border-radius: 10px;
+            display: none;
+        }
 
-  .scenario-icon { font-size: 28px; margin-bottom: 6px; }
-  .scenario-name { font-size: 13px; font-weight: 700; color: var(--text); }
-  .scenario-desc { font-size: 11px; color: var(--text2); margin-top: 2px; }
+        .error.show {
+            display: block;
+            animation: shake 0.5s;
+        }
 
-  .phrase-list {
-    padding: 0 16px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    overflow-y: auto;
-    flex: 1;
-  }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
 
-  .phrase-item {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px 14px;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .phrase-item:hover {
-    border-color: var(--accent3);
-    background: var(--surface2);
-  }
+        .info-box {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 12px;
+            font-size: 13px;
+            color: #1976d2;
+            line-height: 1.5;
+        }
 
-  .phrase-ko { font-size: 14px; font-weight: 700; color: var(--text); }
-  .phrase-en { font-size: 12px; color: var(--accent3); margin-top: 2px; }
-  .phrase-play { font-size: 18px; opacity: 0.5; transition: opacity 0.2s; }
-  .phrase-item:hover .phrase-play { opacity: 1; }
+        .play-btn {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 10px;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
 
-  /* 히스토리 화면 */
-  .history-list {
-    padding: 12px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    overflow-y: auto;
-    flex: 1;
-  }
+        .play-btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        }
 
-  .history-item {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 14px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .history-item:hover { border-color: var(--border); background: var(--surface2); }
+        .lang-detected {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #667eea;
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
 
-  .history-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-  }
-  .history-date { font-size: 11px; color: var(--text2); font-family: 'Space Mono', monospace; }
-  .history-count { font-size: 11px; color: var(--accent); font-family: 'Space Mono', monospace; }
+        .shortcut-hint {
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+            margin-top: 15px;
+        }
 
-  .history-preview { font-size: 13px; color: var(--text2); line-height: 1.4; }
-  .history-preview strong { color: var(--text); }
-
-  .clear-btn {
-    margin: 8px 16px 16px;
-    padding: 10px;
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    color: var(--accent2);
-    font-family: 'Nanum Gothic', sans-serif;
-    font-size: 13px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .clear-btn:hover { background: rgba(255,107,107,0.1); border-color: var(--accent2); }
-
-  /* 로딩 표시 */
-  .typing-bubble {
-    align-self: flex-start;
-    background: var(--them-bg);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    border-bottom-left-radius: 4px;
-    padding: 14px 18px;
-    display: flex;
-    gap: 5px;
-    animation: bubbleIn 0.3s ease;
-  }
-
-  .typing-dot {
-    width: 7px; height: 7px;
-    background: var(--text2);
-    border-radius: 50%;
-    animation: typing 1.2s infinite;
-  }
-  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-
-  @keyframes typing {
-    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-    30% { transform: translateY(-6px); opacity: 1; }
-  }
-
-  /* 토스트 */
-  .toast {
-    position: fixed;
-    bottom: 100px;
-    left: 50%;
-    transform: translateX(-50%) translateY(20px);
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 10px 20px;
-    font-size: 13px;
-    color: var(--text);
-    z-index: 1000;
-    opacity: 0;
-    transition: all 0.3s;
-    white-space: nowrap;
-  }
-  .toast.show {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-
-  /* 스크롤바 */
-  ::-webkit-scrollbar { width: 3px; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-</style>
+        kbd {
+            background: #eee;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            border: 1px solid #ddd;
+        }
+    </style>
 </head>
 <body>
-
-<!-- 헤더 -->
-<div class="header">
-  <div class="logo">옆<span>통</span>역</div>
-  <div class="lang-selector">
-    <button class="lang-btn active" id="srcLang" onclick="cycleLang('src')">한국어</button>
-    <span class="swap-icon" onclick="swapLangs()">⇄</span>
-    <button class="lang-btn" id="tgtLang" onclick="cycleLang('tgt')">English</button>
-  </div>
-  <button class="settings-btn" onclick="toggleApiPanel()">⚙</button>
-</div>
-
-<!-- API 키 패널 -->
-<div class="api-panel" id="apiPanel">
-  <label>OpenAI API Key</label>
-  <div class="api-input-row">
-    <input type="password" class="api-input" id="apiKeyInput" placeholder="sk-..." />
-    <button class="api-save-btn" onclick="saveApiKey()">저장</button>
-  </div>
-  <div class="api-status" id="apiStatus">✓ API 키 저장됨</div>
-</div>
-
-<!-- 탭 -->
-<div class="tabs">
-  <div class="tab active" onclick="switchTab('translate')">🎙 번역</div>
-  <div class="tab" onclick="switchTab('scenario')">📋 시나리오</div>
-  <div class="tab" onclick="switchTab('history')">📂 히스토리</div>
-</div>
-
-<!-- 번역 화면 -->
-<div class="screen active" id="screen-translate">
-  <div class="chat-area" id="chatArea">
-    <div class="empty-state" id="emptyState">
-      <div class="empty-icon">🌏</div>
-      <div class="empty-text">버튼을 누르고 말하면<br>실시간으로 번역됩니다</div>
+    <!-- 토스트 메시지 -->
+    <div class="toast" id="toast">
+        <span class="toast-icon" id="toastIcon">ℹ️</span>
+        <span id="toastMessage">메시지</span>
     </div>
-  </div>
 
-  <div class="controls">
-    <div class="mode-toggle">
-      <button class="mode-btn active" id="mode-me" onclick="setMode('me')">내가 말하기</button>
-      <button class="mode-btn" id="mode-them" onclick="setMode('them')">상대방 말하기</button>
-    </div>
-    <div class="mic-area">
-      <div class="speaker-label" id="labelMe">나</div>
-      <button class="mic-btn" id="micBtn" onclick="toggleRec()">
-        <div class="mic-ring"></div>
-        🎤
-      </button>
-      <div class="speaker-label" id="labelThem">상대방</div>
-    </div>
-    <div class="mic-hint" id="micHint">버튼을 눌러 말하기 시작</div>
-  </div>
-</div>
+    <div class="container">
+        <h1>🌐 AI 음성 번역기</h1>
+        <p class="subtitle">버튼을 눌러 녹음을 시작하고, 다시 눌러 번역을 실행하세요</p>
 
-<!-- 시나리오 화면 -->
-<div class="screen" id="screen-scenario">
-  <div class="scenario-grid" id="scenarioGrid">
-    <div class="scenario-card active" data-id="restaurant" onclick="selectScenario('restaurant')">
-      <div class="scenario-icon">🍽</div>
-      <div class="scenario-name">식당</div>
-      <div class="scenario-desc">주문, 알레르기</div>
-    </div>
-    <div class="scenario-card" data-id="shopping" onclick="selectScenario('shopping')">
-      <div class="scenario-icon">🛍</div>
-      <div class="scenario-name">쇼핑</div>
-      <div class="scenario-desc">가격, 교환, 환불</div>
-    </div>
-    <div class="scenario-card" data-id="hotel" onclick="selectScenario('hotel')">
-      <div class="scenario-icon">🏨</div>
-      <div class="scenario-name">숙소</div>
-      <div class="scenario-desc">체크인, 서비스</div>
-    </div>
-    <div class="scenario-card" data-id="transport" onclick="selectScenario('transport')">
-      <div class="scenario-icon">🚌</div>
-      <div class="scenario-name">교통</div>
-      <div class="scenario-desc">길찾기, 티켓</div>
-    </div>
-    <div class="scenario-card" data-id="hospital" onclick="selectScenario('hospital')">
-      <div class="scenario-icon">🏥</div>
-      <div class="scenario-name">병원</div>
-      <div class="scenario-desc">증상, 약국</div>
-    </div>
-    <div class="scenario-card" data-id="emergency" onclick="selectScenario('emergency')">
-      <div class="scenario-icon">🆘</div>
-      <div class="scenario-name">긴급</div>
-      <div class="scenario-desc">도움 요청</div>
-    </div>
-  </div>
-  <div class="phrase-list" id="phraseList"></div>
-</div>
-
-<!-- 히스토리 화면 -->
-<div class="screen" id="screen-history">
-  <div class="history-list" id="historyList"></div>
-  <button class="clear-btn" onclick="clearHistory()">🗑 대화 기록 모두 삭제</button>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script>
-// ===== 상태 =====
-let apiKey = localStorage.getItem('yeoptongyeok_apikey') || '';
-let currentMode = 'me';
-let mediaRecorder = null;
-let audioChunks = [];
-let isRecording = false;
-let conversations = JSON.parse(localStorage.getItem('yeoptongyeok_convs') || '[]');
-let currentConvId = Date.now();
-let currentConvMessages = [];
-
-const LANGS = {
-  '한국어': 'ko', 'English': 'en', '日本語': 'ja', '中文': 'zh',
-  'Español': 'es', 'Français': 'fr', 'Deutsch': 'de', 'ภาษาไทย': 'th',
-  'Tiếng Việt': 'vi', 'Bahasa': 'id'
-};
-const LANG_NAMES = Object.keys(LANGS);
-let srcLangName = '한국어';
-let tgtLangName = 'English';
-
-// ===== 시나리오 데이터 =====
-const PHRASES = {
-  restaurant: [
-    { ko: '이 테이블 예약했어요', en: 'I have a reservation for this table.' },
-    { ko: '메뉴판 주세요', en: 'Can I have the menu please?' },
-    { ko: '이걸로 주세요', en: 'I\'ll have this one please.' },
-    { ko: '견과류 알레르기가 있어요', en: 'I\'m allergic to nuts.' },
-    { ko: '맵지 않게 해주세요', en: 'Please make it not spicy.' },
-    { ko: '계산서 주세요', en: 'Can I have the bill please?' },
-    { ko: '카드 되나요?', en: 'Do you accept credit cards?' },
-    { ko: '포장해 주세요', en: 'Can I get this to go?' },
-  ],
-  shopping: [
-    { ko: '이거 얼마예요?', en: 'How much is this?' },
-    { ko: '다른 색상 있나요?', en: 'Do you have this in another color?' },
-    { ko: '입어봐도 될까요?', en: 'Can I try this on?' },
-    { ko: '좀 깎아 줄 수 있나요?', en: 'Can you give me a discount?' },
-    { ko: '영수증 주세요', en: 'Can I have the receipt?' },
-    { ko: '교환 가능한가요?', en: 'Can I exchange this?' },
-    { ko: '환불해주세요', en: 'I\'d like a refund please.' },
-    { ko: '면세 되나요?', en: 'Is tax-free shopping available?' },
-  ],
-  hotel: [
-    { ko: '체크인 하러 왔어요', en: 'I\'m here to check in.' },
-    { ko: '제 이름으로 예약했어요', en: 'I have a reservation under my name.' },
-    { ko: '방 업그레이드 가능한가요?', en: 'Is a room upgrade available?' },
-    { ko: '와이파이 비밀번호가 뭐예요?', en: 'What is the WiFi password?' },
-    { ko: '수건 더 주세요', en: 'Can I have more towels?' },
-    { ko: '체크아웃은 몇 시예요?', en: 'What time is check-out?' },
-    { ko: '짐 맡아줄 수 있나요?', en: 'Can you keep my luggage?' },
-    { ko: '공항까지 택시 불러주세요', en: 'Please call a taxi to the airport.' },
-  ],
-  transport: [
-    { ko: '공항까지 어떻게 가요?', en: 'How do I get to the airport?' },
-    { ko: '여기로 가주세요', en: 'Please take me here.' },
-    { ko: '티켓 한 장 주세요', en: 'One ticket please.' },
-    { ko: '다음 역이 어디예요?', en: 'What is the next station?' },
-    { ko: '내려야 할 곳에 알려주세요', en: 'Please let me know when to get off.' },
-    { ko: '지하철역이 어디예요?', en: 'Where is the subway station?' },
-    { ko: '여기서 얼마나 걸려요?', en: 'How long does it take from here?' },
-    { ko: '길을 잃었어요', en: 'I\'m lost.' },
-  ],
-  hospital: [
-    { ko: '머리가 너무 아파요', en: 'I have a severe headache.' },
-    { ko: '열이 있어요', en: 'I have a fever.' },
-    { ko: '배가 아파요', en: 'I have a stomachache.' },
-    { ko: '이 약 처방해 주세요', en: 'Please prescribe this medicine.' },
-    { ko: '약국이 어디예요?', en: 'Where is the pharmacy?' },
-    { ko: '보험이 있어요', en: 'I have insurance.' },
-    { ko: '응급실이 어디예요?', en: 'Where is the emergency room?' },
-    { ko: '한국어 하는 의사 있나요?', en: 'Is there a Korean-speaking doctor?' },
-  ],
-  emergency: [
-    { ko: '도와주세요!', en: 'Help me!' },
-    { ko: '경찰 불러주세요', en: 'Please call the police.' },
-    { ko: '앰뷸런스 불러주세요', en: 'Please call an ambulance.' },
-    { ko: '지갑을 잃어버렸어요', en: 'I lost my wallet.' },
-    { ko: '여권을 잃어버렸어요', en: 'I lost my passport.' },
-    { ko: '도둑맞았어요', en: 'I was robbed.' },
-    { ko: '한국 대사관이 어디예요?', en: 'Where is the Korean embassy?' },
-    { ko: '이건 긴급 상황이에요', en: 'This is an emergency.' },
-  ],
-};
-
-let selectedScenario = 'restaurant';
-
-// ===== 초기화 =====
-if (apiKey) {
-  document.getElementById('apiKeyInput').value = apiKey;
-  document.getElementById('apiStatus').style.display = 'block';
-}
-renderPhrases(selectedScenario);
-renderHistory();
-
-// ===== API 키 =====
-function toggleApiPanel() {
-  const panel = document.getElementById('apiPanel');
-  panel.classList.toggle('show');
-}
-
-function saveApiKey() {
-  apiKey = document.getElementById('apiKeyInput').value.trim();
-  if (!apiKey) { showToast('API 키를 입력해주세요'); return; }
-  localStorage.setItem('yeoptongyeok_apikey', apiKey);
-  document.getElementById('apiStatus').style.display = 'block';
-  showToast('✓ API 키 저장됨');
-  setTimeout(() => document.getElementById('apiPanel').classList.remove('show'), 800);
-}
-
-// ===== 탭 =====
-function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t, i) => {
-    const tabs = ['translate', 'scenario', 'history'];
-    t.classList.toggle('active', tabs[i] === name);
-  });
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById('screen-' + name).classList.add('active');
-  if (name === 'history') renderHistory();
-}
-
-// ===== 언어 =====
-function cycleLang(type) {
-  if (type === 'src') {
-    let idx = (LANG_NAMES.indexOf(srcLangName) + 1) % LANG_NAMES.length;
-    srcLangName = LANG_NAMES[idx];
-    document.getElementById('srcLang').textContent = srcLangName;
-  } else {
-    let idx = (LANG_NAMES.indexOf(tgtLangName) + 1) % LANG_NAMES.length;
-    tgtLangName = LANG_NAMES[idx];
-    document.getElementById('tgtLang').textContent = tgtLangName;
-  }
-  renderPhrases(selectedScenario);
-}
-
-function swapLangs() {
-  [srcLangName, tgtLangName] = [tgtLangName, srcLangName];
-  document.getElementById('srcLang').textContent = srcLangName;
-  document.getElementById('tgtLang').textContent = tgtLangName;
-  renderPhrases(selectedScenario);
-}
-
-// ===== 모드 =====
-function setMode(mode) {
-  currentMode = mode;
-  document.getElementById('mode-me').classList.toggle('active', mode === 'me');
-  document.getElementById('mode-them').classList.toggle('active', mode === 'them');
-  document.getElementById('labelMe').classList.toggle('active', mode === 'me');
-  document.getElementById('labelThem').classList.toggle('active', mode === 'them');
-}
-
-// ===== 녹음 =====
-async function toggleRec() {
-  if (isRecording) {
-    // 녹음 중 → 중지
-    isRecording = false;
-    mediaRecorder.stop();
-    mediaRecorder.stream.getTracks().forEach(t => t.stop());
-
-    const btn = document.getElementById('micBtn');
-    btn.classList.remove('recording');
-    btn.classList.add('loading');
-    btn.innerHTML = '<div class="mic-ring"></div>⏳';
-    document.getElementById('micHint').textContent = '번역 중...';
-
-    mediaRecorder.onstop = async () => {
-      const blob = new Blob(audioChunks, { type: 'audio/webm' });
-      await processAudio(blob);
-      btn.classList.remove('loading');
-      btn.innerHTML = '<div class="mic-ring"></div>🎤';
-      document.getElementById('micHint').textContent = '버튼을 눌러 말하기 시작';
-    };
-  } else {
-    // 대기 중 → 녹음 시작
-    if (!apiKey) { showToast('⚙ API 키를 먼저 설정해주세요'); toggleApiPanel(); return; }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioChunks = [];
-      mediaRecorder = new MediaRecorder(stream);
-      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-      mediaRecorder.start();
-      isRecording = true;
-
-      const btn = document.getElementById('micBtn');
-      btn.classList.add('recording');
-      btn.innerHTML = '<div class="mic-ring"></div>🔴';
-      document.getElementById('micHint').textContent = '녹음 중... 다시 누르면 번역';
-    } catch (err) {
-      showToast('마이크 접근 권한이 필요합니다');
-    }
-  }
-}
-
-async function processAudio(blob) {
-  const isSpeakerMe = (currentMode === 'me');
-  const speakLang = isSpeakerMe ? srcLangName : tgtLangName;
-  const transLang = isSpeakerMe ? tgtLangName : srcLangName;
-
-  // 로딩 버블
-  const loadingEl = showLoadingBubble();
-
-  try {
-    // 1. Whisper STT
-    const formData = new FormData();
-    formData.append('file', blob, 'audio.webm');
-    formData.append('model', 'whisper-1');
-    formData.append('language', LANGS[speakLang] || 'ko');
-
-    const sttRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}` },
-      body: formData
-    });
-
-    if (!sttRes.ok) throw new Error('STT 오류: ' + sttRes.status);
-    const sttData = await sttRes.json();
-    const original = sttData.text?.trim();
-    if (!original) { removeLoadingBubble(loadingEl); showToast('음성을 인식하지 못했어요'); return; }
-
-    // 2. 번역
-    const transRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          { role: 'system', content: `You are a travel interpreter. Translate the user's text from ${speakLang} to ${transLang}. Output ONLY the translation, nothing else.` },
-          { role: 'user', content: original }
-        ],
-        max_tokens: 300
-      })
-    });
-
-    if (!transRes.ok) throw new Error('번역 오류: ' + transRes.status);
-    const transData = await transRes.json();
-    const translated = transData.choices[0].message.content.trim();
-
-    // 3. TTS (번역된 언어)
-    removeLoadingBubble(loadingEl);
-    addBubble(isSpeakerMe ? 'me' : 'them', original, translated, speakLang, transLang);
-    saveMessage(isSpeakerMe ? 'me' : 'them', original, translated);
-
-    // TTS 재생
-    playTTS(translated, LANGS[transLang] || 'en');
-
-  } catch (err) {
-    removeLoadingBubble(loadingEl);
-    showToast('오류: ' + err.message);
-    console.error(err);
-  }
-}
-
-async function playTTS(text, lang) {
-  try {
-    const res = await fetch('https://api.openai.com/v1/audio/speech', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'tts-1',
-        input: text,
-        voice: 'nova',
-        speed: 0.95
-      })
-    });
-    if (!res.ok) return;
-    const audioBlob = await res.blob();
-    const url = URL.createObjectURL(audioBlob);
-    const audio = new Audio(url);
-    audio.play();
-  } catch (e) {
-    // TTS 실패해도 조용히 무시
-  }
-}
-
-// ===== 채팅 UI =====
-function showLoadingBubble() {
-  hideEmpty();
-  const el = document.createElement('div');
-  el.className = 'typing-bubble';
-  el.id = 'loadingBubble';
-  el.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
-  document.getElementById('chatArea').appendChild(el);
-  el.scrollIntoView({ behavior: 'smooth' });
-  return el;
-}
-
-function removeLoadingBubble(el) {
-  if (el && el.parentNode) el.parentNode.removeChild(el);
-}
-
-function hideEmpty() {
-  const e = document.getElementById('emptyState');
-  if (e) e.style.display = 'none';
-}
-
-function addBubble(side, original, translated, srcL, tgtL) {
-  hideEmpty();
-  const now = new Date();
-  const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-
-  const el = document.createElement('div');
-  el.className = `bubble ${side}`;
-  el.innerHTML = `
-    <div class="bubble-label">${side === 'me' ? '나' : '상대방'} · ${srcL}</div>
-    <div class="bubble-content">
-      <div class="bubble-original">${escHtml(original)}</div>
-      <div class="bubble-translated">${escHtml(translated)}</div>
-    </div>
-    <div class="bubble-time">${timeStr}</div>
-  `;
-  document.getElementById('chatArea').appendChild(el);
-  el.scrollIntoView({ behavior: 'smooth' });
-}
-
-function escHtml(t) {
-  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-// ===== 메시지 저장 =====
-function saveMessage(side, original, translated) {
-  currentConvMessages.push({ side, original, translated, time: Date.now() });
-
-  // conversations에 저장
-  const idx = conversations.findIndex(c => c.id === currentConvId);
-  if (idx >= 0) {
-    conversations[idx].messages = currentConvMessages;
-    conversations[idx].updatedAt = Date.now();
-  } else {
-    conversations.unshift({ id: currentConvId, messages: currentConvMessages, createdAt: Date.now(), updatedAt: Date.now() });
-  }
-  localStorage.setItem('yeoptongyeok_convs', JSON.stringify(conversations.slice(0, 50)));
-}
-
-// ===== 시나리오 =====
-function selectScenario(id) {
-  selectedScenario = id;
-  document.querySelectorAll('.scenario-card').forEach(c => {
-    c.classList.toggle('active', c.dataset.id === id);
-  });
-  renderPhrases(id);
-}
-
-// 번역 캐시 (언어쌍+문장 → 번역결과)
-const phraseCache = {};
-
-async function renderPhrases(id) {
-  const phrases = PHRASES[id] || [];
-  const list = document.getElementById('phraseList');
-
-  // 출발어가 한국어, 도착어가 영어면 기본값 그대로 표시
-  const srcIsKo = (LANGS[srcLangName] === 'ko');
-  const tgtIsEn = (LANGS[tgtLangName] === 'en');
-
-  // 상단 표시용 언어 (좌=출발어 기준)
-  const leftLang = srcLangName;
-  const rightLang = tgtLangName;
-
-  // 일단 로딩 상태로 렌더
-  list.innerHTML = phrases.map((p, i) => `
-    <div class="phrase-item" id="phrase-${id}-${i}" onclick="speakPhraseItem(${i}, '${escAttr(id)}')">
-      <div style="flex:1">
-        <div class="phrase-ko" id="phrase-left-${id}-${i}">${escHtml(p.ko)}</div>
-        <div class="phrase-en" id="phrase-right-${id}-${i}">${escHtml(p.en)}</div>
-      </div>
-      <div class="phrase-play">▶</div>
-    </div>
-  `).join('');
-
-  // 한국어→영어 기본 조합이면 추가 번역 불필요
-  if (srcIsKo && tgtIsEn) return;
-
-  // API 키 없으면 영어 그대로
-  if (!apiKey) return;
-
-  // 각 문장 번역 (캐시 활용)
-  for (let i = 0; i < phrases.length; i++) {
-    const p = phrases[i];
-    const leftEl = document.getElementById(`phrase-left-${id}-${i}`);
-    const rightEl = document.getElementById(`phrase-right-${id}-${i}`);
-    if (!leftEl || !rightEl) continue;
-
-    // 좌측: 출발어
-    const leftKey = `${LANGS[srcLangName]}:${p.en}`;
-    if (!phraseCache[leftKey]) {
-      if (LANGS[srcLangName] === 'ko') {
-        phraseCache[leftKey] = p.ko;
-      } else if (LANGS[srcLangName] === 'en') {
-        phraseCache[leftKey] = p.en;
-      } else {
-        phraseCache[leftKey] = null; // 번역 예정
-      }
-    }
-
-    // 우측: 도착어
-    const rightKey = `${LANGS[tgtLangName]}:${p.en}`;
-    if (!phraseCache[rightKey]) {
-      if (LANGS[tgtLangName] === 'ko') {
-        phraseCache[rightKey] = p.ko;
-      } else if (LANGS[tgtLangName] === 'en') {
-        phraseCache[rightKey] = p.en;
-      } else {
-        phraseCache[rightKey] = null;
-      }
-    }
-
-    // 번역 필요한 경우 API 호출
-    const needLeft = phraseCache[leftKey] === null;
-    const needRight = phraseCache[rightKey] === null;
-
-    if (needLeft || needRight) {
-      try {
-        const targets = [];
-        if (needLeft) targets.push(`${srcLangName}: ${p.en}`);
-        if (needRight) targets.push(`${tgtLangName}: ${p.en}`);
-
-        const res = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'gpt-3.5-turbo',
-            messages: [{
-              role: 'system',
-              content: 'You are a travel phrase translator. For each line in format "Language: phrase", translate the phrase to that language. Return ONLY translations, one per line, in the same order, no labels.'
-            }, {
-              role: 'user',
-              content: targets.join('\n')
-            }],
-            max_tokens: 200
-          })
-        });
-        const data = await res.json();
-        const lines = data.choices[0].message.content.trim().split('\n');
-        let li = 0;
-        if (needLeft && lines[li]) { phraseCache[leftKey] = lines[li].trim(); li++; }
-        if (needRight && lines[li]) { phraseCache[rightKey] = lines[li].trim(); }
-      } catch(e) {
-        if (needLeft) phraseCache[leftKey] = p.ko;
-        if (needRight) phraseCache[rightKey] = p.en;
-      }
-    }
-
-    // DOM 업데이트
-    if (phraseCache[leftKey]) leftEl.textContent = phraseCache[leftKey];
-    if (phraseCache[rightKey]) rightEl.textContent = phraseCache[rightKey];
-  }
-}
-
-// 현재 언어에 맞는 문장으로 TTS 재생
-async function speakPhraseItem(idx, scenarioId) {
-  if (!apiKey) { showToast('API 키를 먼저 설정해주세요'); return; }
-  const p = PHRASES[scenarioId]?.[idx];
-  if (!p) return;
-  const rightKey = `${LANGS[tgtLangName]}:${p.en}`;
-  const text = phraseCache[rightKey] || p.en;
-  showToast('🔊 재생 중...');
-  await playTTS(text, LANGS[tgtLangName] || 'en');
-}
-
-function escAttr(t) {
-  return t.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-}
-
-async function speakPhrase(en) {
-  if (!apiKey) { showToast('API 키를 먼저 설정해주세요'); return; }
-  showToast('🔊 재생 중...');
-  await playTTS(en, 'en');
-}
-
-// ===== 히스토리 =====
-function renderHistory() {
-  const list = document.getElementById('historyList');
-  if (conversations.length === 0) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">아직 대화 기록이 없어요</div></div>';
-    return;
-  }
-  list.innerHTML = conversations.map(c => {
-    const first = c.messages[0];
-    const d = new Date(c.createdAt);
-    const dateStr = d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-    return `
-      <div class="history-item" onclick="loadConversation(${c.id})">
-        <div class="history-meta">
-          <span class="history-date">${dateStr}</span>
-          <span class="history-count">${c.messages.length}개 번역</span>
+        <div class="api-section">
+            <label>OpenAI API 키</label>
+            <input type="password" id="apiKey" placeholder="sk-..." />
         </div>
-        <div class="history-preview"><strong>${escHtml(first?.original || '')}</strong><br>${escHtml(first?.translated || '')}</div>
-      </div>
-    `;
-  }).join('');
-}
 
-function loadConversation(id) {
-  const conv = conversations.find(c => c.id === id);
-  if (!conv) return;
-  currentConvId = id;
-  currentConvMessages = conv.messages;
+        <div class="language-selector">
+            <div class="lang-box">
+                <label>내 언어 (입력)</label>
+                <select id="sourceLang">
+                    <option value="auto">자동 감지</option>
+                    <option value="ko">한국어</option>
+                    <option value="en">English</option>
+                    <option value="ja">日本語</option>
+                    <option value="zh">中文</option>
+                    <option value="es">Español</option>
+                    <option value="fr">Français</option>
+                    <option value="de">Deutsch</option>
+                    <option value="ru">Русский</option>
+                    <option value="it">Italiano</option>
+                    <option value="pt">Português</option>
+                    <option value="vi">Tiếng Việt</option>
+                    <option value="th">ไทย</option>
+                    <option value="ar">العربية</option>
+                    <option value="hi">हिन्दी</option>
+                </select>
+            </div>
 
-  const chatArea = document.getElementById('chatArea');
-  chatArea.innerHTML = '';
-  conv.messages.forEach(m => addBubble(m.side, m.original, m.translated, '?', '?'));
-  switchTab('translate');
-}
+            <button class="swap-btn" onclick="swapLanguages()" title="언어 교환">⇄</button>
 
-function clearHistory() {
-  if (!confirm('모든 대화 기록을 삭제할까요?')) return;
-  conversations = [];
-  currentConvMessages = [];
-  currentConvId = Date.now();
-  localStorage.setItem('yeoptongyeok_convs', '[]');
-  renderHistory();
-  document.getElementById('chatArea').innerHTML = `
-    <div class="empty-state" id="emptyState">
-      <div class="empty-icon">🌏</div>
-      <div class="empty-text">버튼을 누르고 말하면<br>실시간으로 번역됩니다</div>
-    </div>`;
-  showToast('삭제 완료');
-}
+            <div class="lang-box">
+                <label>상대방 언어 (출력)</label>
+                <select id="targetLang">
+                    <option value="en" selected>English</option>
+                    <option value="ko">한국어</option>
+                    <option value="ja">日本語</option>
+                    <option value="zh">中文</option>
+                    <option value="es">Español</option>
+                    <option value="fr">Français</option>
+                    <option value="de">Deutsch</option>
+                    <option value="ru">Русский</option>
+                    <option value="it">Italiano</option>
+                    <option value="pt">Português</option>
+                    <option value="vi">Tiếng Việt</option>
+                    <option value="th">ไทย</option>
+                    <option value="ar">العربية</option>
+                    <option value="hi">हिन्दी</option>
+                </select>
+            </div>
+        </div>
 
-// ===== 토스트 =====
-let toastTimer;
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
-}
-</script>
+        <div class="mic-wrapper">
+            <div class="mic-container">
+                <!-- 녹음 중 파형 애니메이션 -->
+                <div class="sound-waves" id="soundWaves">
+                    <div class="wave"></div>
+                    <div class="wave"></div>
+                    <div class="wave"></div>
+                </div>
+
+                <button class="mic-button" id="micBtn" onclick="toggleRecording()">
+                    🎤
+                </button>
+            </div>
+
+            <div class="timer" id="timer">00:00</div>
+
+            <div class="status-box" id="statusBox">
+                <span class="status-icon" id="statusIcon">🎙️</span>
+                <span id="statusText">버튼을 눌러 녹음 시작</span>
+            </div>
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="result-container" id="resultContainer">
+            <div class="result-label">인식된 내용</div>
+            <div class="lang-detected" id="detectedLang" style="display:none;"></div>
+            <div class="result-text" id="sourceText"></div>
+
+            <div class="result-label">번역 결과</div>
+            <div class="result-text translated-text" id="translatedText"></div>
+
+            <button class="play-btn" onclick="playTranslatedAudio()">
+                🔊 번역 음성 다시 듣기
+            </button>
+        </div>
+
+        <div class="info-box">
+            💡 <strong>사용 방법:</strong><br>
+            1. OpenAI API 키를 입력하세요<br>
+            2. 🎤 버튼을 <strong>한 번 누르면</strong> 녹음 시작<br>
+            3. <strong>다시 누르면</strong> 녹음 종료 및 자동 번역<br>
+            4. 번역된 음성이 자동으로 재생됩니다
+        </div>
+
+        <div class="shortcut-hint">
+            단축키: <kbd>Space</kbd> 키로 녹음 시작/종료
+        </div>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let audioBlob = null;
+        let translatedAudioUrl = null;
+        let currentTranslatedText = '';
+        let recordingTimer = null;
+        let seconds = 0;
+
+        // 언어 이름 매핑
+        const langNames = {
+            'ko': '한국어', 'en': 'English', 'ja': '日本語', 'zh': '中文',
+            'es': 'Español', 'fr': 'Français', 'de': 'Deutsch', 'ru': 'Русский',
+            'it': 'Italiano', 'pt': 'Português', 'vi': 'Tiếng Việt', 'th': 'ไทย',
+            'ar': 'العربية', 'hi': 'हिन्दी'
+        };
+
+        // 토스트 메시지 표시
+        function showToast(message, type = 'info', duration = 3000) {
+            const toast = document.getElementById('toast');
+            const toastIcon = document.getElementById('toastIcon');
+            const toastMessage = document.getElementById('toastMessage');
+
+            toastMessage.textContent = message;
+
+            // 타입별 아이콘 및 스타일
+            const icons = {
+                'info': 'ℹ️',
+                'success': '✅',
+                'error': '❌',
+                'recording': '🔴'
+            };
+
+            toastIcon.textContent = icons[type] || 'ℹ️';
+            toast.className = 'toast show ' + type;
+
+            if (duration > 0) {
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, duration);
+            }
+
+            return toast;
+        }
+
+        // 토스트 숨기기
+        function hideToast() {
+            document.getElementById('toast').classList.remove('show');
+        }
+
+        // 에러 표시
+        function showError(msg) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = msg;
+            errorDiv.classList.add('show');
+            showToast(msg, 'error', 5000);
+
+            setTimeout(() => {
+                errorDiv.classList.remove('show');
+            }, 5000);
+        }
+
+        // 언어 교환
+        function swapLanguages() {
+            const source = document.getElementById('sourceLang');
+            const target = document.getElementById('targetLang');
+            const temp = source.value;
+            source.value = target.value;
+            target.value = temp;
+
+            showToast('언어가 교환되었습니다', 'success', 2000);
+        }
+
+        // 타이머 포맷
+        function formatTime(sec) {
+            const mins = Math.floor(sec / 60).toString().padStart(2, '0');
+            const secs = (sec % 60).toString().padStart(2, '0');
+            return `${mins}:${secs}`;
+        }
+
+        // 타이머 시작
+        function startTimer() {
+            seconds = 0;
+            const timerEl = document.getElementById('timer');
+            timerEl.textContent = '00:00';
+            timerEl.classList.add('show');
+
+            recordingTimer = setInterval(() => {
+                seconds++;
+                timerEl.textContent = formatTime(seconds);
+            }, 1000);
+        }
+
+        // 타이머 중지
+        function stopTimer() {
+            clearInterval(recordingTimer);
+            document.getElementById('timer').classList.remove('show');
+        }
+
+        // 상태 업데이트
+        function updateStatus(state) {
+            const statusBox = document.getElementById('statusBox');
+            const statusText = document.getElementById('statusText');
+            const statusIcon = document.getElementById('statusIcon');
+            const micBtn = document.getElementById('micBtn');
+            const soundWaves = document.getElementById('soundWaves');
+
+            switch(state) {
+                case 'idle':
+                    statusBox.className = 'status-box';
+                    statusText.textContent = '버튼을 눌러 녹음 시작';
+                    statusIcon.textContent = '🎙️';
+                    micBtn.innerHTML = '🎤';
+                    micBtn.classList.remove('recording', 'processing');
+                    soundWaves.classList.remove('active');
+                    break;
+
+                case 'recording':
+                    statusBox.className = 'status-box recording';
+                    statusText.textContent = '🔴 녹음 중... (버튼을 다시 눌러 종료)';
+                    statusIcon.textContent = '⏹️';
+                    micBtn.innerHTML = '⏹️';
+                    micBtn.classList.add('recording');
+                    micBtn.classList.remove('processing');
+                    soundWaves.classList.add('active');
+                    break;
+
+                case 'processing':
+                    statusBox.className = 'status-box processing';
+                    statusText.innerHTML = '처리 중... <span class="loading"></span>';
+                    statusIcon.textContent = '⚙️';
+                    micBtn.innerHTML = '⏳';
+                    micBtn.classList.remove('recording');
+                    micBtn.classList.add('processing');
+                    soundWaves.classList.remove('active');
+                    break;
+            }
+        }
+
+        // 녹음 토글
+        async function toggleRecording() {
+            if (!isRecording) {
+                await startRecording();
+            } else {
+                await stopRecording();
+            }
+        }
+
+        // 녹음 시작
+        async function startRecording() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                showError('OpenAI API 키를 입력해주세요');
+                document.getElementById('apiKey').focus();
+                return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    // 스트림 정리
+                    stream.getTracks().forEach(track => track.stop());
+                    // 처리 시작
+                    await processAudio();
+                };
+
+                mediaRecorder.start(100); // 100ms 간격으로 데이터 수집
+                isRecording = true;
+
+                // UI 업데이트
+                updateStatus('recording');
+                startTimer();
+                showToast('녹음이 시작되었습니다', 'recording', 0); // 지속 표시
+
+            } catch (err) {
+                showError('마이크 접근 권한이 필요합니다: ' + err.message);
+            }
+        }
+
+        // 녹음 중지
+        async function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+
+                // UI 업데이트
+                stopTimer();
+                updateStatus('processing');
+                hideToast();
+                showToast('녹음 종료! 번역 처리 중...', 'info', 0);
+            }
+        }
+
+        // 오디오 처리 (Whisper + GPT + TTS)
+        async function processAudio() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const sourceLang = document.getElementById('sourceLang').value;
+            const targetLang = document.getElementById('targetLang').value;
+
+            try {
+                // 1. Whisper로 음성을 텍스트로 변환
+                const formData = new FormData();
+                formData.append('file', audioBlob, 'audio.webm');
+                formData.append('model', 'whisper-1');
+                if (sourceLang !== 'auto') {
+                    formData.append('language', sourceLang);
+                }
+
+                const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: formData
+                });
+
+                if (!whisperRes.ok) {
+                    throw new Error('음성 인식 실패: ' + await whisperRes.text());
+                }
+
+                const whisperData = await whisperRes.json();
+                const recognizedText = whisperData.text;
+                const detectedLang = whisperData.language || sourceLang;
+
+                if (!recognizedText.trim()) {
+                    throw new Error('음성을 인식하지 못했습니다. 다시 시도해주세요.');
+                }
+
+                // 2. GPT-4로 번역
+                const targetLangName = langNames[targetLang] || targetLang;
+                const translateRes = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'gpt-4o-mini',
+                        messages: [
+                            {
+                                role: 'system',
+                                content: `You are a professional translator. Translate the following text to ${targetLangName}. Only return the translated text, no explanations, no quotation marks.`
+                            },
+                            {
+                                role: 'user',
+                                content: recognizedText
+                            }
+                        ],
+                        temperature: 0.3
+                    })
+                });
+
+                if (!translateRes.ok) {
+                    throw new Error('번역 실패: ' + await translateRes.text());
+                }
+
+                const translateData = await translateRes.json();
+                currentTranslatedText = translateData.choices[0].message.content;
+
+                // 3. TTS로 음성 생성
+                const ttsRes = await fetch('https://api.openai.com/v1/audio/speech', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'tts-1',
+                        input: currentTranslatedText,
+                        voice: 'alloy',
+                        response_format: 'mp3'
+                    })
+                });
+
+                if (!ttsRes.ok) {
+                    throw new Error('음성 생성 실패: ' + await ttsRes.text());
+                }
+
+                const audioData = await ttsRes.blob();
+
+                // 이전 URL 정리
+                if (translatedAudioUrl) {
+                    URL.revokeObjectURL(translatedAudioUrl);
+                }
+                translatedAudioUrl = URL.createObjectURL(audioData);
+
+                // 결과 표시
+                displayResults(recognizedText, currentTranslatedText, detectedLang);
+
+                // 상태 복원 및 성공 메시지
+                updateStatus('idle');
+                hideToast();
+                showToast('번역 완료!', 'success', 3000);
+
+                // 자동 재생
+                setTimeout(() => playTranslatedAudio(), 500);
+
+            } catch (err) {
+                showError('오류: ' + err.message);
+                updateStatus('idle');
+                hideToast();
+            }
+        }
+
+        // 결과 표시
+        function displayResults(source, translated, detected) {
+            document.getElementById('sourceText').textContent = source;
+            document.getElementById('translatedText').textContent = translated;
+
+            const langDiv = document.getElementById('detectedLang');
+            if (detected && detected !== 'auto') {
+                langDiv.textContent = `감지된 언어: ${langNames[detected] || detected}`;
+                langDiv.style.display = 'inline-block';
+            } else {
+                langDiv.style.display = 'none';
+            }
+
+            document.getElementById('resultContainer').classList.add('show');
+
+            // 결과 영역으로 스크롤
+            document.getElementById('resultContainer').scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest'
+            });
+        }
+
+        // 번역된 음성 재생
+        function playTranslatedAudio() {
+            if (translatedAudioUrl) {
+                const audio = new Audio(translatedAudioUrl);
+                audio.play().catch(err => {
+                    showToast('음성 재생 실패: ' + err.message, 'error');
+                });
+            } else {
+                showToast('재생할 음성이 없습니다', 'error');
+            }
+        }
+
+        // 키보드 단축키 (Spacebar로 녹음 토글)
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
+                e.preventDefault();
+                toggleRecording();
+            }
+        });
+
+        // API 키 로컬 저장 (선택적)
+        document.getElementById('apiKey').addEventListener('change', (e) => {
+            if (e.target.value) {
+                localStorage.setItem('openai_api_key', e.target.value);
+            }
+        });
+
+        // 페이지 로드 시 저장된 API 키 복원
+        window.addEventListener('load', () => {
+            const savedKey = localStorage.getItem('openai_api_key');
+            if (savedKey) {
+                document.getElementById('apiKey').value = savedKey;
+            }
+        });
+
+        // 페이지 언로드시 URL 정리
+        window.addEventListener('beforeunload', () => {
+            if (translatedAudioUrl) {
+                URL.revokeObjectURL(translatedAudioUrl);
+            }
+        });
+    </script>
 </body>
 </html>
